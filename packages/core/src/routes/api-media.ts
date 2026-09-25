@@ -16,6 +16,40 @@ async function emitEvent(eventName: string, data: any) {
   // TODO: Implement proper event system when plugin architecture is ready
 }
 
+// Las variantes se generan en el navegador (Canvas) y llegan como partes
+// `variant[<name>]` del FormData. Acá solo se persisten en R2 con la clave
+// `<r2Key>@<name>`. Devuelve la lista de claves guardadas.
+async function storeUploadedVariants(
+  bucket: {
+    put: (
+      key: string,
+      value: ArrayBuffer | Uint8Array | string,
+      options?: { httpMetadata?: { contentType?: string }; customMetadata?: Record<string, string> },
+    ) => Promise<unknown>
+  },
+  formData: FormData,
+  r2Key: string,
+): Promise<string[]> {
+  const keys: string[] = []
+  for (const [field, value] of formData.entries()) {
+    const match = /^variant\[(.+)\]$/.exec(field)
+    if (!match || !match[1] || typeof value === 'string') continue
+    const name = match[1]
+    const file = value as File
+    const variantKey = `${r2Key}@${name}`
+    try {
+      await bucket.put(variantKey, await file.arrayBuffer(), {
+        httpMetadata: { contentType: file.type || 'image/webp' },
+        customMetadata: { variant: 'true', source: r2Key },
+      })
+      keys.push(variantKey)
+    } catch (error) {
+      console.warn(`Failed to store variant ${name}:`, error)
+    }
+  }
+  return keys
+}
+
 // File validation schema
 const fileValidationSchema = z.object({
   name: z.string().min(1).max(255),
@@ -95,6 +129,9 @@ apiMediaRoutes.post('/upload', async (c) => {
     if (!uploadResult) {
       return c.json({ error: 'Failed to upload file to storage' }, 500)
     }
+
+    // Store browser-generated variants (thumb/card/detail/…).
+    await storeUploadedVariants(c.env.MEDIA_BUCKET, formData, r2Key)
 
     // Generate public URL using environment variable for bucket name
     const bucketName = c.env.BUCKET_NAME || 'sonicjs-media-dev'
