@@ -125,6 +125,40 @@ export class DocumentRepository {
     return row ? rowToDocument(row) : null
   }
 
+  // Batch read by root ids: one round-trip (chunked under D1's param limit) instead of
+  // N `getCurrentDraft` calls. Returns one doc per rootId, preferring the current draft
+  // over the published row (matches getCurrentDraft/getPublished precedence). Used to
+  // resolve reference fields without N+1. Ordering is not preserved.
+  async getByRootIds(typeId: string, rootIds: string[]): Promise<Document[]> {
+    const unique = [...new Set(rootIds.map((id) => String(id)).filter(Boolean))]
+    const out: Document[] = []
+    const seen = new Set<string>()
+    const CHUNK = 50 // stays well under D1's 100-bound-param limit
+
+    for (let i = 0; i < unique.length; i += CHUNK) {
+      const chunk = unique.slice(i, i + CHUNK)
+      const placeholders = chunk.map(() => '?').join(',')
+      const rows = await this.db
+        .prepare(
+          `SELECT * FROM documents
+           WHERE tenant_id = ? AND type_id = ? AND deleted_at IS NULL
+             AND (is_current_draft = 1 OR is_published = 1)
+             AND root_id IN (${placeholders})
+           ORDER BY is_current_draft DESC, updated_at DESC`,
+        )
+        .bind(this.tenantId, typeId, ...chunk)
+        .all<DocumentRow>()
+
+      for (const row of rows.results ?? []) {
+        if (seen.has(row.root_id)) continue
+        seen.add(row.root_id)
+        out.push(rowToDocument(row))
+      }
+    }
+
+    return out
+  }
+
   // Unified, tenant-scoped list with optional generated-column / facet filters and sort. This is the
   // single place document list SQL is built — route handlers must call this, never inline SQL (R4).
   async list(opts: ListDocumentsOptions = {}): Promise<Document[]> {
