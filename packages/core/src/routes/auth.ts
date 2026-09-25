@@ -754,7 +754,14 @@ authRoutes.post('/login/form',
     }
 
     const rawRedirect = c.req.query('redirect')
-    const redirectUrl = rawRedirect && rawRedirect.startsWith('/') ? rawRedirect : '/admin/content'
+    let redirectUrl = rawRedirect && rawRedirect.startsWith('/') ? rawRedirect : '/admin/content'
+
+    // Sin `?redirect=` explícito, rutea por super-admin usando el user de la
+    // respuesta de sign-in de Better Auth (trae `isSuperAdmin`), sin SQL crudo.
+    if (!rawRedirect || !rawRedirect.startsWith('/')) {
+      const signIn = (await baRes.json().catch(() => null)) as { user?: { isSuperAdmin?: boolean } } | null
+      redirectUrl = signIn?.user?.isSuperAdmin === true ? '/admin/content' : '/panel'
+    }
 
     // For HTMX requests: HX-Redirect triggers an immediate client-side navigation.
     // For native form submissions (HTMX not loaded): the <script> setTimeout handles it.

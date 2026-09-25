@@ -85,6 +85,18 @@ export { bootstrapDocumentTypes } from './services/document-types-seed'
 export { DocumentRepository } from './services/document-repository'
 export { DocumentsService } from './services/documents'
 
+// Media documents — re-exported so user plugins read/write media via the same
+// service the admin media library uses (no inline SQL against `documents`).
+export {
+  MediaDocumentService,
+  mediaDocToRecord,
+  mediaDocToFile,
+  deriveMediaPublicUrl,
+  deriveMediaThumbnailUrl,
+  MEDIA_QUERYABLE,
+} from './services/media-documents'
+export type { MediaListOptions, MediaListResult, MediaUploadMeta, MediaUrlOptions } from './services/media-documents'
+
 // Cloudflare email provider
 export { CloudflareEmailProvider } from './services/email/providers/cloudflare'
 export type { CloudflareEmailProviderOptions, CFSendEmailBinding } from './services/email/providers/cloudflare'

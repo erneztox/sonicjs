@@ -252,7 +252,7 @@ export class MediaDocumentService {
   /** Update alt/caption/tags on a media_asset document (saveDraft + publish atomically). */
   async updateMetadata(
     rootId: string,
-    meta: { alt?: string | null; caption?: string | null; tags?: string[] },
+    meta: { alt?: string | null; caption?: string | null; tags?: string[]; filename?: string | null },
     updatedBy?: string,
   ): Promise<Document> {
     const svc = new DocumentsService(this.db, { queryableFields: MEDIA_QUERYABLE, tenantId: this.tenantId, maxVersionsPerRoot: 5 })
