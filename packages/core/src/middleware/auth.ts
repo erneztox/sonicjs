@@ -473,33 +473,6 @@ export const requireRbac = (resource: string, verb: string) => {
   }
 }
 
-// Middleware to require the platform super-admin. Blocks EVERYONE else from
-// /admin/* entirely (store owners/editors included), regardless of RBAC grants.
-// This is a hard gate on `is_super_admin`, not a scoping/permission check.
-export const requireSuperAdmin = () => {
-  return async (c: Context, next: Next) => {
-    const user = c.get('user') as (JWTPayload & { isSuperAdmin?: boolean }) | undefined
-
-    if (!user) {
-      const acceptHeader = c.req.header('Accept') || ''
-      if (acceptHeader.includes('text/html')) {
-        return c.redirect('/auth/login?error=Please login to access the admin area')
-      }
-      return c.json({ error: 'Authentication required' }, 401)
-    }
-
-    if (user.isSuperAdmin !== true) {
-      const acceptHeader = c.req.header('Accept') || ''
-      if (acceptHeader.includes('text/html')) {
-        return c.redirect('/auth/login?error=This area is restricted to the platform super-admin')
-      }
-      return c.json({ error: 'Super-admin access required' }, 403)
-    }
-
-    return await next()
-  }
-}
-
 // Optional auth middleware. The session middleware already sets c.get('user')
 // when a valid session exists, so this is a no-op kept for API compatibility.
 export const optionalAuth = () => {

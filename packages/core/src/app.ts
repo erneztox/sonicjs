@@ -51,7 +51,7 @@ import {
 import { apiKeysPlugin, apiKeyAuthMiddleware } from './plugins/core-plugins/api-keys-plugin'
 import { stripePlugin } from './plugins/core-plugins/stripe-plugin'
 import { formsPlugin } from './plugins/core-plugins/forms-plugin'
-import { requireAuth, requireSuperAdmin, AuthManager } from './middleware/auth'
+import { requireAuth, requireRbac, AuthManager } from './middleware/auth'
 import { createAuth } from './auth/config'
 import { guardPasswordlessSecondFactor } from './auth/passwordless-second-factor-guard'
 import { adminRbacRoutes } from './routes/admin-rbac'
@@ -561,11 +561,10 @@ export function createSonicJSApp(config: SonicJSConfig = {}): SonicJSApp {
   // Runs after auth (admin switcher cookie) and before route handlers read the request context.
   app.use('*', tenantMiddleware())
 
-  // Admin panel access control: super-admin only. `is_super_admin` decides who
-  // can enter /admin/* — store owners/editors are blocked entirely, regardless
-  // of RBAC grants or tenant scope.
+  // Admin panel access control: require authentication and dynamic RBAC portal
+  // access. Legacy `users.role` no longer decides who can enter /admin/*.
   app.use('/admin/*', requireAuth())
-  app.use('/admin/*', requireSuperAdmin())
+  app.use('/admin/*', requireRbac('portal', 'access'))
 
   // Plugin dynamic menu items for admin sidebar
   app.use('/admin/*', pluginMenuMiddleware())

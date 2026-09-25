@@ -15,7 +15,6 @@ export {
   AuthManager,
   requireAuth,
   requireRole,
-  requireSuperAdmin,
   optionalAuth,
   getJwtExpirySeconds,
   getJwtExpirySecondsFromDb,

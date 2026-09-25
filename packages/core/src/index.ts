@@ -147,7 +147,6 @@ export {
   AuthManager,
   requireAuth,
   requireRole,
-  requireSuperAdmin,
   optionalAuth,
   // Logging
   loggingMiddleware,
