@@ -163,14 +163,51 @@ export class DocumentRepository {
   // single place document list SQL is built — route handlers must call this, never inline SQL (R4).
   async list(opts: ListDocumentsOptions = {}): Promise<Document[]> {
     const limit = Math.min(opts.limit ?? 50, 200)
+    const { sql, params, useFacetJoin } = this.buildWhere(opts)
+    const p = useFacetJoin ? 'd.' : ''
+
+    let tail = ''
+    if (opts.cursorUpdatedAt !== undefined && opts.cursorId) {
+      tail += ` AND (${p}updated_at < ? OR (${p}updated_at = ? AND ${p}id < ?))`
+      params.push(opts.cursorUpdatedAt, opts.cursorUpdatedAt, opts.cursorId)
+    }
+
+    const dir = opts.sortDir === 'ASC' ? 'ASC' : 'DESC'
+    if (opts.sortColumn) {
+      if (!SAFE_IDENTIFIER.test(opts.sortColumn)) throw new Error(`Unsafe sort column: ${opts.sortColumn}`)
+      tail += ` ORDER BY ${p}${opts.sortColumn} ${dir}, ${p}id ${dir} LIMIT ?`
+    } else {
+      tail += ` ORDER BY ${p}updated_at ${dir}, ${p}id ${dir} LIMIT ?`
+    }
+    params.push(limit)
+
+    const select = useFacetJoin ? 'SELECT d.* ' : 'SELECT * '
+    const result = await this.db.prepare(select + sql + tail).bind(...params).all<DocumentRow>()
+    return (result.results ?? []).map(rowToDocument)
+  }
+
+  // Count docs matching the same filters as list(), without materializing rows.
+  async count(opts: ListDocumentsOptions = {}): Promise<number> {
+    const { sql, params, useFacetJoin } = this.buildWhere(opts)
+    const select = useFacetJoin ? 'SELECT COUNT(DISTINCT d.id) AS c ' : 'SELECT COUNT(*) AS c '
+    const result = await this.db.prepare(select + sql).bind(...params).first<{ c: number }>()
+    return Number(result?.c ?? 0)
+  }
+
+  // Shared WHERE builder for list()/count(): FROM + filters (no cursor/ORDER BY/LIMIT).
+  private buildWhere(opts: ListDocumentsOptions): {
+    sql: string
+    params: (string | number)[]
+    useFacetJoin: boolean
+  } {
     const status: ListStatus = opts.status ?? 'published'
     const useFacetJoin = !!opts.facetFilter
-    const p = useFacetJoin ? 'd.' : '' // column prefix when joining facets
+    const p = useFacetJoin ? 'd.' : ''
 
     const params: (string | number)[] = [this.tenantId]
     let sql = useFacetJoin
-      ? 'SELECT d.* FROM documents d JOIN document_facets f ON f.document_id = d.id WHERE d.tenant_id = ?'
-      : 'SELECT * FROM documents WHERE tenant_id = ?'
+      ? 'FROM documents d JOIN document_facets f ON f.document_id = d.id WHERE d.tenant_id = ?'
+      : 'FROM documents WHERE tenant_id = ?'
 
     sql += ` AND ${p}deleted_at IS NULL`
 
@@ -202,22 +239,7 @@ export class DocumentRepository {
       params.push(sf.value)
     }
 
-    if (opts.cursorUpdatedAt !== undefined && opts.cursorId) {
-      sql += ` AND (${p}updated_at < ? OR (${p}updated_at = ? AND ${p}id < ?))`
-      params.push(opts.cursorUpdatedAt, opts.cursorUpdatedAt, opts.cursorId)
-    }
-
-    const dir = opts.sortDir === 'ASC' ? 'ASC' : 'DESC'
-    if (opts.sortColumn) {
-      if (!SAFE_IDENTIFIER.test(opts.sortColumn)) throw new Error(`Unsafe sort column: ${opts.sortColumn}`)
-      sql += ` ORDER BY ${p}${opts.sortColumn} ${dir}, ${p}id ${dir} LIMIT ?`
-    } else {
-      sql += ` ORDER BY ${p}updated_at ${dir}, ${p}id ${dir} LIMIT ?`
-    }
-    params.push(limit)
-
-    const result = await this.db.prepare(sql).bind(...params).all<DocumentRow>()
-    return (result.results ?? []).map(rowToDocument)
+    return { sql, params, useFacetJoin }
   }
 
   listPublished(opts: ListDocumentsOptions = {}): Promise<Document[]> {
