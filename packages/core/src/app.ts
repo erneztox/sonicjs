@@ -69,7 +69,7 @@ import { versioningPlugin } from './plugins/core-plugins/versioning-plugin'
 import { tenantMiddleware } from './middleware/tenant'
 import { createMagicLinkAuthPlugin } from './plugins/available/magic-link-auth'
 import cachePlugin from './plugins/cache'
-import type { Plugin } from './plugins/types'
+import type { RegisterablePlugin } from './plugins/sdk/register-plugins'
 import { registerPluginRoutes } from './plugins/mount'
 import { HookSystemImpl } from './plugins/hook-system'
 import { setHookSystem } from './plugins/hooks/hook-system-singleton'
@@ -181,7 +181,7 @@ export interface SonicJSConfig {
      * @example
      * createSonicJSApp({ plugins: { register: [contactFormPlugin] } })
      */
-    register?: Plugin[]
+    register?: RegisterablePlugin[]
     /**
      * Disable ALL plugins — core AND user. When true, no plugin routes are
      * mounted and plugin bootstrap (DB seeding) is skipped. Use this to run a

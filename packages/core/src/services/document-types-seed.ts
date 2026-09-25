@@ -307,6 +307,7 @@ export async function autoRegisterCollectionDocumentTypes(db: D1Database): Promi
           baseGrants,
           maxVersionsPerRoot: 50,
           ...(collection.versioning ? { versioning: true } : {}),
+          ...(collection.global ? { global: true } : {}),
         },
         queryableFields: collection.queryableFields ?? [],
       })

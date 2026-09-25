@@ -138,6 +138,14 @@ export interface CollectionConfig {
   internal?: boolean
 
   /**
+   * Shared/global collection: its documents are NOT tenant-scoped — they live in
+   * one shared pool visible from every tenant (tenant sentinel `__global__`).
+   * Opt-in (default false). When false, the collection is tenant-isolated.
+   * See `DocumentTypeSettings.global` and `effectiveTenantForType`.
+   */
+  global?: boolean
+
+  /**
    * If true, the collection is active and available for use
    * Default: true
    */
