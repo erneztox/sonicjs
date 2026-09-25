@@ -39,6 +39,10 @@ function rowToDocument(row: DocumentRow): Document {
 
 export type ListStatus = 'published' | 'draft' | 'all'
 
+export type ScalarFilterOp = '=' | '>' | '<' | '>=' | '<=' | '!='
+
+const SCALAR_FILTER_OPS: ReadonlySet<string> = new Set(['=', '>', '<', '>=', '<=', '!='])
+
 export interface ListDocumentsOptions {
   typeId?: string
   /** Which lifecycle axis to list: published row, current-draft row, or either. */
@@ -50,8 +54,9 @@ export interface ListDocumentsOptions {
   cursorId?: string
   now?: number
   /** Resolved generated-column filters, e.g. { column: 'q_tst_rating', value: 4 }. Caller maps
-   *  field→column via the type's queryableFields; column names are format-guarded here too. */
-  scalarFilters?: Array<{ column: string; value: string | number }>
+   *  field→column via the type's queryableFields; column names are format-guarded here too.
+   *  `op` (default `=`) allows range predicates (>, <, >=, <=, !=) against scalar columns. */
+  scalarFilters?: Array<{ column: string; value: string | number; op?: ScalarFilterOp }>
   /** Multi-valued facet filter, e.g. { field: 'tags', value: 'homepage' }. Bound as params. */
   facetFilter?: { field: string; value: string }
   /** Generated-column to sort by (else keyset on updated_at). Format-guarded. */
@@ -157,7 +162,9 @@ export class DocumentRepository {
 
     for (const sf of opts.scalarFilters ?? []) {
       if (!SAFE_IDENTIFIER.test(sf.column)) throw new Error(`Unsafe filter column: ${sf.column}`)
-      sql += ` AND ${p}${sf.column} = ?`
+      const op = sf.op ?? '='
+      if (!SCALAR_FILTER_OPS.has(op)) throw new Error(`Unsafe filter op: ${op}`)
+      sql += ` AND ${p}${sf.column} ${op} ?`
       params.push(sf.value)
     }
 
