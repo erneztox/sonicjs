@@ -85,6 +85,10 @@ export { bootstrapDocumentTypes } from './services/document-types-seed'
 export { DocumentRepository } from './services/document-repository'
 export { DocumentsService } from './services/documents'
 
+// Scalar schema — exported so integration test harnesses (e.g. better-sqlite3) can
+// create the VIRTUAL q_* generated columns for a type the same way bootstrap does.
+export { ensureScalarSchema, resetScalarSchemaCache } from './services/document-scalar-schema'
+
 // Media documents — re-exported so user plugins read/write media via the same
 // service the admin media library uses (no inline SQL against `documents`).
 export {
