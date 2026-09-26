@@ -852,9 +852,10 @@ export function createSonicJSApp(config: SonicJSConfig = {}): SonicJSApp {
     }
   }
 
-  // Root redirect to login
+  // Root: un usuario con sesión aterriza en el panel; sin sesión, al login.
   app.get('/', (c) => {
-    return c.redirect('/auth/login')
+    const user = c.get('user')
+    return c.redirect(user?.userId ? '/panel' : '/auth/login')
   })
 
   // Health check

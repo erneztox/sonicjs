@@ -85,6 +85,10 @@ const authRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
 // Login page (HTML form)
 authRoutes.get('/login', async (c) => {
+  // Si ya hay sesión, rebota directo al panel: no mostramos el form a un usuario
+  // logueado (evita la pantalla "en blanco" al visitar / o /auth/login).
+  if (c.get('user')?.userId) return c.redirect('/panel')
+
   const error = c.req.query('error')
   const message = c.req.query('message')
   const redirect = c.req.query('redirect')
@@ -754,14 +758,9 @@ authRoutes.post('/login/form',
     }
 
     const rawRedirect = c.req.query('redirect')
-    let redirectUrl = rawRedirect && rawRedirect.startsWith('/') ? rawRedirect : '/admin/content'
-
-    // Sin `?redirect=` explícito, rutea por super-admin usando el user de la
-    // respuesta de sign-in de Better Auth (trae `isSuperAdmin`), sin SQL crudo.
-    if (!rawRedirect || !rawRedirect.startsWith('/')) {
-      const signIn = (await baRes.json().catch(() => null)) as { user?: { isSuperAdmin?: boolean } } | null
-      redirectUrl = signIn?.user?.isSuperAdmin === true ? '/admin/content' : '/panel'
-    }
+    // Por defecto TODOS (superadmin y dueño) aterrizan en el panel (/panel).
+    // El CMS (/admin) se alcanza a mano. Sin branch por rol.
+    const redirectUrl = rawRedirect && rawRedirect.startsWith('/') ? rawRedirect : '/panel'
 
     // For HTMX requests: HX-Redirect triggers an immediate client-side navigation.
     // For native form submissions (HTMX not loaded): the <script> setTimeout handles it.
